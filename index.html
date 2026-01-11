@@ -1,0 +1,504 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>安徽省考行测复盘系统 (离线专业版)</title>
+    <!-- 引入 Tailwind CSS (保持原样，通常访问尚可) -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- 核心依赖库 (已替换为国内 Staticfile CDN，速度更快更稳定) -->
+
+    <!-- 1. React 核心 -->
+    <script src="https://cdn.staticfile.net/react/18.2.0/umd/react.production.min.js"></script>
+    <script src="https://cdn.staticfile.net/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+
+    <!-- 2. Recharts 依赖 Prop-types -->
+    <script src="https://cdn.staticfile.net/prop-types/15.8.1/prop-types.min.js"></script>
+
+    <!-- 3. Recharts 核心 -->
+    <script src="https://cdn.staticfile.net/recharts/2.12.7/Recharts.min.js"></script>
+
+    <!-- 4. Babel 编译器 -->
+    <script src="https://cdn.staticfile.net/babel-standalone/7.23.5/babel.min.js"></script>
+
+    <style>
+        body { font-family: "Microsoft YaHei", sans-serif; background-color: #f1f5f9; }
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: #f1f5f9; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+        .animate-fade-in { animation: fadeIn 0.3s ease-in-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        // 再次检查依赖是否加载成功
+        const React = window.React;
+        const ReactDOM = window.ReactDOM;
+        const Recharts = window.Recharts;
+
+        // 如果加载失败，显示更详细的中文提示
+        if (!React || !ReactDOM || !Recharts) {
+            document.getElementById('root').innerHTML = `
+                <div style="padding: 40px; text-align: center; color: #ef4444; font-family: sans-serif;">
+                    <h3 style="font-size: 24px; margin-bottom: 16px;">⚠️ 依赖库加载失败</h3>
+                    <p style="margin-bottom: 8px;">系统检测到核心组件未正确加载。这通常是网络问题导致的。</p>
+                    <div style="background: #fef2f2; padding: 16px; border-radius: 8px; display: inline-block; margin-top: 16px; text-align: left;">
+                        <p style="font-weight: bold;">缺失组件检查：</p>
+                        <ul style="list-style: disc; margin-left: 20px;">
+                            <li style="${!React ? 'color: red; font-weight: bold;' : 'color: green;'}">React: ${!React ? '❌ 失败' : '✅ 成功'}</li>
+                            <li style="${!ReactDOM ? 'color: red; font-weight: bold;' : 'color: green;'}">ReactDOM: ${!ReactDOM ? '❌ 失败' : '✅ 成功'}</li>
+                            <li style="${!Recharts ? 'color: red; font-weight: bold;' : 'color: green;'}">Recharts (图表库): ${!Recharts ? '❌ 失败' : '✅ 成功'}</li>
+                        </ul>
+                    </div>
+                    <p style="margin-top: 20px; color: #666;">建议：请检查网络连接，或尝试刷新页面。</p>
+                </div>
+            `;
+            throw new Error("依赖库未正确加载");
+        }
+
+        const { useState, useEffect, useMemo } = React;
+        const { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, BarChart, Bar } = Recharts;
+
+        // --- 图标组件 ---
+        const IconSave = () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>;
+        const IconHistory = () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 3v18h18"/><path d="M18.7 8l-5.1 5.2-2.8-2.7L7 14.3"/></svg>;
+        const IconEdit = () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>;
+        const IconTrash = () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>;
+
+        // --- 试卷结构定义 (安徽定制版) ---
+        const EXAM_STRUCTURE = [
+            { id: 'politics', name: '政治理论', range: [1, 15], count: 15, weight: 0.8, color: 'bg-red-50 border-red-200 text-red-800' },
+            { id: 'common', name: '常识判断', range: [16, 30], count: 15, weight: 0.8, color: 'bg-blue-50 border-blue-200 text-blue-700' },
+            { id: 'quant', name: '数量关系', range: [31, 45], count: 15, weight: 1.0, color: 'bg-purple-50 border-purple-200 text-purple-700' },
+            {
+                id: 'verbal', name: '言语理解', range: [46, 70], count: 25, weight: 0.9, color: 'bg-green-50 border-green-200 text-green-700',
+                subsections: [{ name: '逻辑填空', range: [46, 55] }, { name: '段落理解', range: [56, 70] }]
+            },
+            {
+                id: 'judgment', name: '判断推理', range: [71, 105], count: 35, weight: 0.85, color: 'bg-orange-50 border-orange-200 text-orange-700',
+                subsections: [{ name: '定义判断', range: [71, 80] }, { name: '逻辑判断', range: [81, 90] }, { name: '图形推理', range: [91, 95] }, { name: '类比推理', range: [96, 105] }]
+            },
+            { id: 'data', name: '资料分析', range: [106, 125], count: 20, weight: 1.0, color: 'bg-pink-50 border-pink-200 text-pink-700' }
+        ];
+        const TOTAL_QUESTIONS = 125;
+
+        // --- 主应用组件 ---
+        function App() {
+            // tab: 'entry' (录入), 'history' (历史), 'analysis' (分析)
+            const [activeTab, setActiveTab] = useState('entry');
+            const [history, setHistory] = useState([]);
+
+            // 当前录入状态
+            const [currentExamDate, setCurrentExamDate] = useState(new Date().toISOString().split('T')[0]);
+            const [currentAnswers, setCurrentAnswers] = useState({});
+            const [currentTimes, setCurrentTimes] = useState({});
+            const [currentNotes, setCurrentNotes] = useState({});
+            const [currentPaperName, setCurrentPaperName] = useState('安徽省考模拟卷');
+
+            // 初始化加载历史数据
+            useEffect(() => {
+                const savedHistory = localStorage.getItem('anhui_exam_history');
+                if (savedHistory) {
+                    try {
+                        setHistory(JSON.parse(savedHistory));
+                    } catch (e) {
+                        console.error("历史数据读取失败", e);
+                    }
+                }
+            }, []);
+
+            // 保存历史数据到本地
+            useEffect(() => {
+                localStorage.setItem('anhui_exam_history', JSON.stringify(history));
+            }, [history]);
+
+            // 计算当前统计数据
+            const currentStats = useMemo(() => calculateStats(currentAnswers, currentTimes), [currentAnswers, currentTimes]);
+
+            // --- 核心逻辑函数 ---
+
+            function calculateStats(answers, times) {
+                let totalCorrect = 0;
+                let totalAnswered = 0;
+                let totalScore = 0;
+                let totalTime = 0;
+
+                const moduleStats = EXAM_STRUCTURE.map(mod => {
+                    let modCorrect = 0;
+                    let modAnswered = 0;
+                    for (let i = mod.range[0]; i <= mod.range[1]; i++) {
+                        if (answers[i] !== undefined) {
+                            modAnswered++;
+                            if (answers[i] === true) modCorrect++;
+                        }
+                    }
+                    const accuracy = modAnswered > 0 ? (modCorrect / modAnswered) * 100 : 0;
+                    const score = modCorrect * mod.weight;
+                    const time = parseFloat(times[mod.id]) || 0;
+                    totalCorrect += modCorrect;
+                    totalAnswered += modAnswered;
+                    totalScore += score;
+                    totalTime += time;
+                    return { ...mod, modCorrect, modAnswered, accuracy, score, time };
+                });
+                const totalAccuracy = totalAnswered > 0 ? (totalCorrect / totalAnswered) * 100 : 0;
+                return { moduleStats, totalCorrect, totalAnswered, totalScore, totalAccuracy, totalTime };
+            }
+
+            const toggleAnswer = (qNum) => {
+                setCurrentAnswers(prev => {
+                    const current = prev[qNum];
+                    const next = current === true ? false : (current === false ? null : true);
+                    const newAnswers = { ...prev };
+                    if (next === null) delete newAnswers[qNum];
+                    else newAnswers[qNum] = next;
+                    return newAnswers;
+                });
+            };
+
+            const markModule = (range, status) => {
+                setCurrentAnswers(prev => {
+                    const newAnswers = { ...prev };
+                    for (let i = range[0]; i <= range[1]; i++) {
+                        if (status === 'reset') delete newAnswers[i];
+                        else newAnswers[i] = status;
+                    }
+                    return newAnswers;
+                });
+            };
+
+            const saveRecord = () => {
+                if (currentStats.totalAnswered === 0) {
+                    alert("请至少录入一道题的答案再保存！");
+                    return;
+                }
+                const newRecord = {
+                    id: Date.now(),
+                    date: currentExamDate,
+                    paperName: currentPaperName,
+                    answers: currentAnswers,
+                    times: currentTimes,
+                    notes: currentNotes,
+                    stats: currentStats
+                };
+                // 新记录插在最前面
+                setHistory([newRecord, ...history]);
+                alert("保存成功！已归档至历史记录。");
+
+                // 重置表单，准备下一次
+                setCurrentAnswers({});
+                setCurrentTimes({});
+                setCurrentNotes({});
+                setCurrentPaperName('安徽省考模拟卷');
+            };
+
+            const deleteRecord = (id) => {
+                if (window.confirm("确定要删除这条记录吗？删除后不可恢复。")) {
+                    setHistory(history.filter(item => item.id !== id));
+                }
+            };
+
+            const loadRecord = (record) => {
+                if (window.confirm("加载历史记录会覆盖当前正在编辑的内容，确定要加载吗？")) {
+                    setCurrentExamDate(record.date);
+                    setCurrentPaperName(record.paperName);
+                    setCurrentAnswers(record.answers);
+                    setCurrentTimes(record.times);
+                    setCurrentNotes(record.notes || {});
+                    setActiveTab('entry');
+                }
+            };
+
+            // --- 界面渲染组件 ---
+
+            const renderEntryTab = () => (
+                <div className="space-y-6 animate-fade-in">
+                    {/* 控制栏 */}
+                    <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-200 flex flex-col md:flex-row justify-between items-end md:items-center gap-4">
+                        <div className="flex flex-col md:flex-row gap-4 w-full md:w-auto">
+                            <div>
+                                <label className="block text-xs font-bold text-slate-500 mb-1">试卷名称</label>
+                                <input type="text" value={currentPaperName} onChange={e => setCurrentPaperName(e.target.value)} className="border border-slate-300 rounded px-3 py-1.5 w-full md:w-64 text-sm focus:ring-2 focus:ring-indigo-500 outline-none" />
+                            </div>
+                            <div>
+                                <label className="block text-xs font-bold text-slate-500 mb-1">做题日期</label>
+                                <input type="date" value={currentExamDate} onChange={e => setCurrentExamDate(e.target.value)} className="border border-slate-300 rounded px-3 py-1.5 w-full md:w-40 text-sm focus:ring-2 focus:ring-indigo-500 outline-none" />
+                            </div>
+                        </div>
+                        <div className="flex gap-2">
+                             <button onClick={() => {if(confirm('清空当前所有录入？')) {setCurrentAnswers({}); setCurrentTimes({}); setCurrentNotes({});}}} className="px-4 py-2 text-sm text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors">重置</button>
+                             <button onClick={saveRecord} className="flex items-center gap-2 px-6 py-2 text-sm font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg shadow-md transition-colors transform active:scale-95">
+                                <IconSave /> 保存归档
+                             </button>
+                        </div>
+                    </div>
+
+                    {/* 仪表盘 */}
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+                            <div className="text-slate-500 text-xs font-bold uppercase">预估总分</div>
+                            <div className="text-3xl font-bold text-indigo-600 mt-1">{currentStats.totalScore.toFixed(1)}</div>
+                        </div>
+                        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+                            <div className="text-slate-500 text-xs font-bold uppercase">正确率</div>
+                            <div className={`text-3xl font-bold mt-1 ${currentStats.totalAccuracy >= 70 ? 'text-green-600' : 'text-orange-500'}`}>{currentStats.totalAccuracy.toFixed(1)}%</div>
+                            <div className="text-xs text-slate-400">{currentStats.totalCorrect}/{currentStats.totalAnswered}</div>
+                        </div>
+                        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+                            <div className="text-slate-500 text-xs font-bold uppercase">总用时</div>
+                            <div className="text-3xl font-bold text-slate-700 mt-1">{currentStats.totalTime} <span className="text-sm text-slate-400 font-normal">分</span></div>
+                        </div>
+                        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+                            <div className="text-slate-500 text-xs font-bold uppercase">错题数</div>
+                            <div className="text-3xl font-bold text-red-500 mt-1">{currentStats.totalAnswered - currentStats.totalCorrect}</div>
+                        </div>
+                    </div>
+
+                    {/* 填涂卡 */}
+                    <div className="space-y-4">
+                        {EXAM_STRUCTURE.map((mod) => (
+                            <div key={mod.id} className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                                <div className={`px-4 py-3 border-b flex flex-wrap justify-between items-center gap-2 ${mod.color}`}>
+                                    <div className="flex items-center gap-2">
+                                        <h3 className="font-bold text-base">{mod.name}</h3>
+                                        <span className="text-xs opacity-75 font-medium tracking-wide border border-current px-1 rounded">{mod.range[0]}-{mod.range[1]}题</span>
+                                        {/* 输入用时 */}
+                                        <div className="ml-4 flex items-center bg-white/50 rounded px-2 py-0.5">
+                                            <span className="text-xs mr-2">用时:</span>
+                                            <input type="number" placeholder="0" className="w-10 bg-transparent text-center font-bold text-sm outline-none border-b border-slate-400 focus:border-indigo-600"
+                                                value={currentTimes[mod.id] || ''}
+                                                onChange={e => setCurrentTimes({...currentTimes, [mod.id]: e.target.value})}
+                                            />
+                                            <span className="text-xs ml-1">分</span>
+                                        </div>
+                                    </div>
+                                    <div className="flex gap-2">
+                                        <button onClick={() => markModule(mod.range, true)} className="text-xs bg-white/60 hover:bg-white px-2 py-1 rounded font-medium">全对</button>
+                                        <button onClick={() => markModule(mod.range, 'reset')} className="text-xs bg-white/60 hover:bg-white px-2 py-1 rounded font-medium">清空</button>
+                                    </div>
+                                </div>
+                                <div className="p-4">
+                                     {/* 子模块提示 */}
+                                     {mod.subsections && (
+                                        <div className="flex flex-wrap gap-2 mb-3">
+                                            {mod.subsections.map(sub => (
+                                                <span key={sub.name} className="text-[10px] px-2 py-1 rounded bg-slate-100 text-slate-500 font-bold uppercase tracking-wider">
+                                                    {sub.name} {sub.range[0]}-{sub.range[1]}
+                                                </span>
+                                            ))}
+                                        </div>
+                                     )}
+                                     <div className="grid grid-cols-10 sm:grid-cols-15 md:grid-cols-20 gap-2">
+                                        {Array.from({ length: mod.range[1] - mod.range[0] + 1 }, (_, i) => mod.range[0] + i).map((qNum) => {
+                                            const status = currentAnswers[qNum];
+                                            let btnClass = "bg-slate-50 border-slate-200 text-slate-400 hover:bg-slate-100 hover:border-slate-300";
+                                            if (status === true) btnClass = "bg-green-500 border-green-600 text-white font-bold ring-2 ring-green-100";
+                                            if (status === false) btnClass = "bg-red-500 border-red-600 text-white font-bold ring-2 ring-red-100";
+
+                                            // 简单的子模块Tooltip
+                                            let title = `${mod.name} 第${qNum}题`;
+                                            if(mod.subsections) {
+                                                const sub = mod.subsections.find(s => qNum >= s.range[0] && qNum <= s.range[1]);
+                                                if(sub) title = `${sub.name} (第${qNum}题)`;
+                                            }
+
+                                            return (
+                                                <button key={qNum} onClick={() => toggleAnswer(qNum)} title={title}
+                                                    className={`h-8 w-full rounded border text-xs transition-all duration-100 flex items-center justify-center ${btnClass}`}>
+                                                    {qNum}
+                                                </button>
+                                            );
+                                        })}
+                                     </div>
+                                     <div className="mt-3">
+                                        <input type="text" placeholder={`填写${mod.name}复盘笔记...`} className="w-full text-xs p-2 bg-slate-50 border border-slate-200 rounded focus:outline-none focus:border-indigo-500 transition-colors"
+                                            value={currentNotes[mod.id] || ''}
+                                            onChange={e => setCurrentNotes({...currentNotes, [mod.id]: e.target.value})}
+                                        />
+                                     </div>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            );
+
+            const renderHistoryTab = () => (
+                <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden min-h-[500px]">
+                    <div className="p-4 border-b border-slate-100 bg-slate-50 flex justify-between items-center">
+                        <h3 className="font-bold text-slate-700">历史归档 ({history.length}条)</h3>
+                        <button onClick={() => {
+                            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(history));
+                            const downloadAnchorNode = document.createElement('a');
+                            downloadAnchorNode.setAttribute("href", dataStr);
+                            downloadAnchorNode.setAttribute("download", "行测复盘备份.json");
+                            document.body.appendChild(downloadAnchorNode);
+                            downloadAnchorNode.click();
+                            downloadAnchorNode.remove();
+                        }} className="text-xs text-indigo-600 hover:underline">备份数据(JSON)</button>
+                    </div>
+                    {history.length === 0 ? (
+                        <div className="p-10 text-center text-slate-400">暂无历史记录，请先去“录入/新建”完成一套试卷。</div>
+                    ) : (
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-sm text-left">
+                                <thead className="bg-slate-50 text-slate-500 font-medium">
+                                    <tr>
+                                        <th className="px-4 py-3">日期</th>
+                                        <th className="px-4 py-3">试卷名称</th>
+                                        <th className="px-4 py-3 text-center">总分</th>
+                                        <th className="px-4 py-3 text-center">正确率</th>
+                                        <th className="px-4 py-3 text-center">言语</th>
+                                        <th className="px-4 py-3 text-center">数量</th>
+                                        <th className="px-4 py-3 text-center">判断</th>
+                                        <th className="px-4 py-3 text-center">资料</th>
+                                        <th className="px-4 py-3 text-right">操作</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-slate-100">
+                                    {history.map(record => (
+                                        <tr key={record.id} className="hover:bg-slate-50 group">
+                                            <td className="px-4 py-3 text-slate-600 font-mono">{record.date}</td>
+                                            <td className="px-4 py-3 font-medium text-slate-800">{record.paperName}</td>
+                                            <td className="px-4 py-3 text-center font-bold text-indigo-600">{record.stats.totalScore.toFixed(1)}</td>
+                                            <td className="px-4 py-3 text-center">
+                                                <span className={`px-2 py-1 rounded text-xs font-bold ${record.stats.totalAccuracy >= 70 ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'}`}>
+                                                    {record.stats.totalAccuracy.toFixed(1)}%
+                                                </span>
+                                            </td>
+                                            {/* 各模块正确率简略展示 */}
+                                            {['verbal', 'quant', 'judgment', 'data'].map(mid => {
+                                                const modStat = record.stats.moduleStats.find(m => m.id === mid);
+                                                return (
+                                                    <td key={mid} className="px-4 py-3 text-center text-slate-500 text-xs">
+                                                        {modStat ? modStat.accuracy.toFixed(0) + '%' : '-'}
+                                                    </td>
+                                                );
+                                            })}
+                                            <td className="px-4 py-3 text-right flex items-center justify-end gap-3">
+                                                <button onClick={() => loadRecord(record)} title="查看/编辑" className="text-slate-400 hover:text-indigo-600"><IconEdit /></button>
+                                                <button onClick={() => deleteRecord(record.id)} title="删除" className="text-slate-400 hover:text-red-600"><IconTrash /></button>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    )}
+                </div>
+            );
+
+            const renderAnalysisTab = () => {
+                if (history.length < 2) return <div className="p-10 text-center text-slate-400 bg-white rounded-xl border border-slate-200">数据不足，请至少录入 2 次考试记录以生成趋势图。</div>;
+
+                // 准备图表数据 (按日期升序)
+                const chartData = [...history].reverse().map(h => ({
+                    date: h.date.slice(5), // 只显示 MM-DD
+                    score: parseFloat(h.stats.totalScore.toFixed(1)),
+                    accuracy: parseFloat(h.stats.totalAccuracy.toFixed(1)),
+                    verbal: parseFloat(h.stats.moduleStats.find(m => m.id === 'verbal').accuracy.toFixed(1)),
+                    judgment: parseFloat(h.stats.moduleStats.find(m => m.id === 'judgment').accuracy.toFixed(1)),
+                    data: parseFloat(h.stats.moduleStats.find(m => m.id === 'data').accuracy.toFixed(1)),
+                    quant: parseFloat(h.stats.moduleStats.find(m => m.id === 'quant').accuracy.toFixed(1)),
+                    politics: parseFloat(h.stats.moduleStats.find(m => m.id === 'politics').accuracy.toFixed(1)),
+                    common: parseFloat(h.stats.moduleStats.find(m => m.id === 'common').accuracy.toFixed(1)),
+                }));
+
+                return (
+                    <div className="space-y-6">
+                        {/* 1. 总分趋势 */}
+                        <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+                            <h3 className="text-lg font-bold text-slate-800 mb-4 border-l-4 border-indigo-500 pl-3">全卷得分走势</h3>
+                            <div className="h-64 w-full">
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <LineChart data={chartData}>
+                                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
+                                        <XAxis dataKey="date" stroke="#94a3b8" tick={{fontSize: 12}} />
+                                        <YAxis domain={[0, 100]} stroke="#94a3b8" tick={{fontSize: 12}} />
+                                        <Tooltip contentStyle={{borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)'}} />
+                                        <Legend />
+                                        <Line type="monotone" dataKey="score" name="总得分" stroke="#4f46e5" strokeWidth={3} dot={{r: 4, fill: '#4f46e5', strokeWidth: 2, stroke: '#fff'}} activeDot={{r: 6}} />
+                                        <Line type="monotone" dataKey="accuracy" name="正确率(%)" stroke="#10b981" strokeWidth={2} strokeDasharray="5 5" dot={false} />
+                                    </LineChart>
+                                </ResponsiveContainer>
+                            </div>
+                        </div>
+
+                        {/* 2. 三大主科趋势 */}
+                        <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+                            <h3 className="text-lg font-bold text-slate-800 mb-4 border-l-4 border-orange-500 pl-3">核心模块正确率趋势</h3>
+                            <div className="h-64 w-full">
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <LineChart data={chartData}>
+                                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
+                                        <XAxis dataKey="date" stroke="#94a3b8" tick={{fontSize: 12}} />
+                                        <YAxis domain={[0, 100]} stroke="#94a3b8" tick={{fontSize: 12}} />
+                                        <Tooltip />
+                                        <Legend />
+                                        <Line type="monotone" dataKey="verbal" name="言语" stroke="#16a34a" strokeWidth={2} dot={{r: 3}} />
+                                        <Line type="monotone" dataKey="judgment" name="判断" stroke="#ea580c" strokeWidth={2} dot={{r: 3}} />
+                                        <Line type="monotone" dataKey="data" name="资料" stroke="#db2777" strokeWidth={2} dot={{r: 3}} />
+                                    </LineChart>
+                                </ResponsiveContainer>
+                            </div>
+                        </div>
+
+                         {/* 3. 小模块趋势 */}
+                        <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+                            <h3 className="text-lg font-bold text-slate-800 mb-4 border-l-4 border-blue-500 pl-3">其他模块正确率趋势</h3>
+                             <div className="h-64 w-full">
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <LineChart data={chartData}>
+                                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
+                                        <XAxis dataKey="date" stroke="#94a3b8" tick={{fontSize: 12}} />
+                                        <YAxis domain={[0, 100]} stroke="#94a3b8" tick={{fontSize: 12}} />
+                                        <Tooltip />
+                                        <Legend />
+                                        <Line type="monotone" dataKey="quant" name="数量" stroke="#9333ea" strokeWidth={2} dot={{r: 3}} />
+                                        <Line type="monotone" dataKey="politics" name="政治" stroke="#dc2626" strokeWidth={2} dot={{r: 3}} />
+                                        <Line type="monotone" dataKey="common" name="常识" stroke="#2563eb" strokeWidth={2} dot={{r: 3}} />
+                                    </LineChart>
+                                </ResponsiveContainer>
+                            </div>
+                        </div>
+                    </div>
+                );
+            };
+
+            return (
+                <div className="min-h-screen pb-10">
+                    {/* 顶部导航 */}
+                    <div className="bg-slate-900 text-white shadow-lg sticky top-0 z-50">
+                        <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                                <span className="text-xl font-bold tracking-tight">安徽省考复盘</span>
+                                <span className="text-xs bg-slate-700 px-2 py-0.5 rounded text-slate-300">离线专业版</span>
+                            </div>
+                            <div className="flex space-x-1">
+                                <button onClick={() => setActiveTab('entry')} className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${activeTab === 'entry' ? 'bg-indigo-600 text-white' : 'text-slate-300 hover:bg-slate-800'}`}>录入/新建</button>
+                                <button onClick={() => setActiveTab('history')} className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${activeTab === 'history' ? 'bg-indigo-600 text-white' : 'text-slate-300 hover:bg-slate-800'}`}>历史记录</button>
+                                <button onClick={() => setActiveTab('analysis')} className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${activeTab === 'analysis' ? 'bg-indigo-600 text-white' : 'text-slate-300 hover:bg-slate-800'}`}>趋势分析</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* 内容区域 */}
+                    <div className="max-w-6xl mx-auto px-4 mt-6">
+                        {activeTab === 'entry' && renderEntryTab()}
+                        {activeTab === 'history' && renderHistoryTab()}
+                        {activeTab === 'analysis' && renderAnalysisTab()}
+                    </div>
+                </div>
+            );
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
